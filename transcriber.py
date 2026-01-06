@@ -3,6 +3,7 @@
 import whisper
 import logging
 import os
+import torch
 from pathlib import Path
 from config import Config
 
@@ -19,8 +20,9 @@ class Transcriber:
     @property
     def model(self):
         if self._model is None:
-            logger.info(f"Loading Whisper model: {self.model_name}")
-            self._model = whisper.load_model(self.model_name)
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
+            logger.info(f"Loading Whisper model: {self.model_name} (device: {device})")
+            self._model = whisper.load_model(self.model_name, device=device)
         return self._model
 
     def transcribe(self, audio_path: str) -> dict:
@@ -32,7 +34,11 @@ class Transcriber:
             raise ValueError(f"Unsupported audio format: {path.suffix}")
 
         logger.info(f"Transcribing: {audio_path}")
-        result = self.model.transcribe(str(path), verbose=False)
+        result = self.model.transcribe(
+            str(path),
+            verbose=False,
+            fp16=False,  # Safer on CPU/MPS
+        )
 
         return {
             "text": result["text"],
